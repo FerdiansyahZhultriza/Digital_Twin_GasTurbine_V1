@@ -1,0 +1,32 @@
+<section class="turbine-viewer" data-testid="turbine-viewer" aria-label="Gas turbine 3D viewer">
+  <header class="viewer-header">
+    <div><span class="eyebrow">M701F / MACHINE EXPLORER</span><h3>Inside the gas turbine</h3></div>
+    <div class="source-speed"><span class="status-dot"></span><span data-role="rpm">Loading model…</span></div>
+  </header>
+  <div class="viewer-toolbar">
+    <div class="segmented" role="group" aria-label="Casing visibility">
+      <button type="button" data-mode="cutaway" aria-label="Cutaway" aria-pressed="true">Cutaway</button>
+      <button type="button" data-mode="exterior" aria-label="Exterior" aria-pressed="false">Exterior</button>
+    </div>
+    <label class="camera-select"><span>VIEW</span><select aria-label="Camera view">
+      <option value="overview">Full assembly</option><option value="compressor">Compressor</option>
+      <option value="combustors">Combustors</option><option value="turbine">Turbine</option>
+      <option value="end">Inlet axial</option>
+    </select></label>
+  </div>
+  <div class="viewport">
+    <div class="loading" role="status">Preparing metal surfaces and blade geometry…</div>
+    <div class="annotations" aria-label="Machine component labels" hidden></div>
+    <div class="view-mark"><span data-role="view-name">SECTION / UPPER CASING REMOVED</span><small>ILLUSTRATIVE GEOMETRY · NOT OEM CAD</small></div>
+    <div class="axis-key" aria-hidden="true"><span>→</span> AIRFLOW</div>
+  </div>
+  <footer class="viewer-footer">
+    <div class="viewer-actions">
+      <button type="button" data-action="rotate" aria-label="Pause rotor"><span data-role="play-icon">Ⅱ</span> <span data-role="play-text">Pause rotor</span></button>
+      <button type="button" data-action="reset" aria-label="Reset view">↺ <span>Reset view</span></button>
+      <button type="button" data-action="labels" aria-label="Show labels" aria-pressed="false">⌖ <span>Labels</span></button>
+    </div>
+    <span class="inspection-speed" data-role="motion">Visual rotation · 1/600 actual speed</span>
+  </footer>
+  <div class="viewer-hint">Drag to orbit <b>·</b> Scroll to zoom <b>·</b> Right-drag to pan</div>
+</section>

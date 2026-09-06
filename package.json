@@ -1,0 +1,14 @@
+{
+  "name": "gas-turbine-viewer-assets",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Optional build tools for the locally bundled turbine graphics. Not needed to run the Python app.",
+  "scripts": {
+    "build:viewer": "esbuild src/viewer/viewer.js --bundle --format=esm --target=es2020 --minify --legal-comments=eof --outfile=src/viewer/turbine.bundle.js",
+    "test:geometry": "esbuild tests/geometry.test.js --bundle --platform=node --format=esm --outfile=.build/geometry.test.mjs && node .build/geometry.test.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.10",
+    "three": "0.180.0"
+  }
+}

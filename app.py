@@ -23,7 +23,7 @@ from src.config import (
     UNIT_BY_COLUMN,
 )
 from src.data_loader import daily_summary, load_dataset, summarize, z_score
-from src.turbine_model import build_gas_turbine_figure
+from src.turbine_model import render_turbine
 
 st.set_page_config(
     page_title=APP_TITLE,
@@ -93,11 +93,6 @@ st.markdown(
 def read_default_data(path: str, modified_time: float) -> pd.DataFrame:
     del modified_time
     return load_dataset(path)
-
-
-@st.cache_resource(show_spinner=False)
-def cached_turbine_figure(rpm_bucket: int) -> go.Figure:
-    return build_gas_turbine_figure(float(rpm_bucket))
 
 
 def number(value: float, digits: int = 1) -> str:
@@ -181,7 +176,7 @@ with st.sidebar:
         st.caption("Add OPENAI_API_KEY to .env to enable the Responses API.")
     st.markdown("---")
     st.caption("TEMP → °C · PRESS → bar")
-    st.caption("The model is conceptual engineering geometry—not OEM CAD.")
+    st.caption("Detailed 3D engineering visualization. Geometry and dimensions are illustrative; OEM CAD is not supplied.")
 
 
 try:
@@ -191,14 +186,16 @@ try:
     else:
         data = read_default_data(str(DEFAULT_DATA_FILE), DEFAULT_DATA_FILE.stat().st_mtime)
         source_label = DEFAULT_DATA_FILE.name
+    summary = summarize(data)
 except Exception as error:
     st.error(f"Could not load the turbine dataset: {error}")
     st.stop()
 
-summary = summarize(data)
-if "record_index" not in st.session_state:
-    st.session_state.record_index = min(4320, len(data) - 1)
-st.session_state.record_index = min(st.session_state.record_index, len(data) - 1)
+st.session_state.setdefault("record_index", min(4320, len(data) - 1))
+pending_record_index = st.session_state.pop("pending_record_index", None)
+if pending_record_index is not None:
+    st.session_state.record_index = pending_record_index
+st.session_state.record_index = max(0, min(st.session_state.record_index, len(data) - 1))
 
 st.markdown(
     f"""
@@ -215,14 +212,18 @@ st.markdown(
 )
 
 st.markdown('<div class="dt-section">Historical record selection</div>', unsafe_allow_html=True)
-selected_index = st.slider(
-    "Historical record",
-    min_value=0,
-    max_value=len(data) - 1,
-    format="%d",
-    label_visibility="collapsed",
-    key="record_index",
-)
+if len(data) > 1:
+    selected_index = st.slider(
+        "Historical record",
+        min_value=0,
+        max_value=len(data) - 1,
+        format="%d",
+        label_visibility="collapsed",
+        key="record_index",
+    )
+else:
+    selected_index = 0
+    st.caption("The dataset contains one valid record.")
 row = data.iloc[selected_index]
 timestamp = row[DATE_COLUMN]
 
@@ -256,8 +257,7 @@ overview_tab, trends_tab, data_tab, assistant_tab, methodology_tab = st.tabs(
 with overview_tab:
     left, right = st.columns([3.3, 1])
     with left:
-        rpm_bucket = int(round(float(row[COL["speed"]]) / 50) * 50)
-        st.plotly_chart(cached_turbine_figure(rpm_bucket), use_container_width=True, config={"displaylogo": False, "scrollZoom": True})
+        render_turbine(row[COL["speed"]])
     with right:
         st.markdown('<div class="dt-section">Machine architecture</div>', unsafe_allow_html=True)
         st.markdown(
@@ -284,11 +284,12 @@ with overview_tab:
         )
         st.markdown(f'<div class="dt-panel">{reading_html}</div>', unsafe_allow_html=True)
         st.markdown(
-            '<div class="dt-advisory">Press <b>ROTATE SHAFT</b> below the model. Drag to orbit and scroll to zoom. Visual speed is scaled for readability.</div>',
+            '<div class="dt-advisory">Drag to orbit · scroll to zoom. Switch between cutaway and exterior, or inspect a section. Rotor speed is slowed for inspection.</div>',
             unsafe_allow_html=True,
         )
 
     st.markdown('<div class="dt-section">Rotor dynamics</div>', unsafe_allow_html=True)
+    st.caption("The three vibration channels retain their source labels; they are not mapped to the model's two physical bearing supports.")
     bearing_columns = st.columns(3)
     for container, (label, key) in zip(
         bearing_columns,
@@ -315,7 +316,7 @@ with trends_tab:
                 "MW",
                 trend_hours,
             ),
-            use_container_width=True,
+            width="stretch",
             config={"displaylogo": False},
         )
     with second_chart:
@@ -330,7 +331,7 @@ with trends_tab:
                 "°C",
                 trend_hours,
             ),
-            use_container_width=True,
+            width="stretch",
             config={"displaylogo": False},
         )
 
@@ -350,7 +351,7 @@ with trends_tab:
         yaxis2={"title": "Label-1 rate (%)", "overlaying": "y", "side": "right", "range": [0, 100]},
         legend={"orientation": "h", "y": 1.12},
     )
-    st.plotly_chart(daily_figure, use_container_width=True, config={"displaylogo": False})
+    st.plotly_chart(daily_figure, width="stretch", config={"displaylogo": False})
 
 with data_tab:
     st.markdown('<div class="dt-section">Complete current instrument register</div>', unsafe_allow_html=True)
@@ -366,7 +367,7 @@ with data_tab:
         else:
             formatted = number(float(value), 2 if "LUBE OIL SUPPLY PRESS" in column else 1)
         register_rows.append({"Measurement": column, "Value": formatted, "Unit": UNIT_BY_COLUMN.get(column, "—")})
-    st.dataframe(pd.DataFrame(register_rows), use_container_width=True, hide_index=True, height=610)
+    st.dataframe(pd.DataFrame(register_rows), width="stretch", hide_index=True, height=610)
 
     st.markdown('<div class="dt-section">Data-quality advisories</div>', unsafe_allow_html=True)
     st.warning(
@@ -395,7 +396,7 @@ with assistant_tab:
         mode_text = f"OpenAI Responses API · {OPENAI_MODEL}" if os.getenv("OPENAI_API_KEY", "").strip() else "Offline local engineering rules"
         st.caption(f"Active mode: {mode_text}. Only compact engineering context is sent when OpenAI is enabled—not the full CSV.")
     with top_clear:
-        if st.button("Clear conversation", use_container_width=True):
+        if st.button("Clear conversation", width="stretch"):
             st.session_state.chat_messages = []
             st.rerun()
 
@@ -404,7 +405,7 @@ with assistant_tab:
     pending_question = None
     for container, preset in zip(quick_questions, presets, strict=True):
         with container:
-            if st.button(preset, use_container_width=True):
+            if st.button(preset, width="stretch"):
                 pending_question = preset
 
     for message in st.session_state.chat_messages:
@@ -431,8 +432,9 @@ with methodology_tab:
     st.markdown(
         """
         - Loads and validates all **10,080 one-minute records** from the packaged semicolon-delimited CSV.
-        - Replays historical readings and synchronizes them with an interactive conceptual gas-turbine cutaway.
-        - Draws exactly **17 compressor rotor stages**, **20 circumferential can-annular combustors**, and **4 turbine rotor stages**.
+        - Replays historical readings with an interactive, detailed gas-turbine visualization and smoothly animated shaft rotation.
+        - Shows **17 compressor rotor stages**, **20 circumferential can-annular combustors**, **4 turbine rotor stages**, solid airfoil blades, and **2 bearing supports**.
+        - Provides cutaway and exterior views, section inspection, and realistic metal materials and lighting. Shaft animation is slowed for inspection; the RPM reading preserves the selected record.
         - Uses the existing `Anomaly Prediction` column as a source label. It does **not** retrain or claim a new machine-learning model.
         - Answers offline using deterministic data-grounded rules. When an API key is present, it optionally calls the OpenAI Responses API with a compact snapshot.
         """
@@ -440,7 +442,8 @@ with methodology_tab:
     st.markdown("### Important engineering boundaries")
     st.markdown(
         """
-        - The 3D geometry is a conceptual engineering visualization, not OEM CAD or a dimensionally accurate manufacturer drawing.
+        - The 3D geometry is an illustrative engineering visualization. OEM CAD, exact dimensions, blade profiles, and manufacturing details were not supplied.
+        - The three source vibration channels are not assigned to the two bearing supports shown in the visualization.
         - The CSV contains machine-level measurements, not individual values for each compressor stage or combustor.
         - No vibration unit, fuel-flow unit, alarm limit, trip limit, or OEM acceptance criterion was included.
         - A label of `1` is treated as *flagged by the source*, not automatically as a confirmed mechanical fault.
@@ -453,7 +456,7 @@ st.caption(
     f"{summary.rows:,} records · {summary.anomaly_count:,} label-1 rows · source-unit validation required"
 )
 
-if auto_play:
+if auto_play and len(data) > 1:
     time.sleep(float(playback_delay))
-    st.session_state.record_index = (selected_index + 1) % len(data)
+    st.session_state.pending_record_index = (selected_index + 1) % len(data)
     st.rerun()

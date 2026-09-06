@@ -3,7 +3,6 @@ from __future__ import annotations
 from src.assistant import ask_turbine_assistant
 from src.config import DEFAULT_DATA_FILE
 from src.data_loader import engineering_snapshot, load_dataset, summarize
-from src.turbine_model import build_gas_turbine_figure
 
 
 def test_packaged_dataset() -> None:
@@ -35,13 +34,3 @@ def test_offline_bilingual_assistant(monkeypatch) -> None:
     assert result.mode == "Local engineering rules"
     assert "bearing #1" in result.text.lower()
     assert "alarm/trip" in result.text.lower()
-
-
-def test_turbine_model_animation() -> None:
-    figure = build_gas_turbine_figure(3000)
-
-    assert len(figure.frames) == 24
-    assert any(trace.name == "17 compressor rotor stages" for trace in figure.data)
-    assert any(trace.name == "4 turbine rotor stages" for trace in figure.data)
-    assert sum(str(trace.name).startswith("Combustor ") for trace in figure.data) == 20
-
